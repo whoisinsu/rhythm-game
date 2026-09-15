@@ -185,9 +185,9 @@
 
 <div id="menuScreen">
   <h1>RHYTHM</h1>
-  <p class="rule">Y U O P 키로 내려오는 노트를 판정선에서 맞추세요.<br>체력이 0이 되면 실패, 30초를 버티면 성공입니다.</p>
+  <p class="rule">H J K L 키로 내려오는 노트를 판정선에서 맞추세요.<br>체력이 0이 되면 Fail, 30초를 버티면 Clear입니다.</p>
   <button id="startBtn">시작</button>
-  <p class="keys">사용 키: <b>Y</b> <b>U</b> <b>O</b> <b>P</b> · 일시정지: <b>Esc</b></p>
+  <p class="keys">사용 키: <b>H</b> <b>J</b> <b>K</b> <b>L</b> · 일시정지: <b>Esc</b></p>
 </div>
 
 <div id="gameScreen">
@@ -205,10 +205,10 @@
     <div id="lanes">
       <div class="blob" style="width:220px;height:220px;left:-40px;top:-30px;background:var(--pink);"></div>
       <div class="blob" style="width:260px;height:260px;right:-60px;bottom:-40px;background:var(--cyan);"></div>
-      <div class="laneCol" data-lane="0" style="left:0;width:25%;"><span class="keyLabel">Y</span></div>
-      <div class="laneCol" data-lane="1" style="left:25%;width:25%;"><span class="keyLabel">U</span></div>
-      <div class="laneCol" data-lane="2" style="left:50%;width:25%;"><span class="keyLabel">O</span></div>
-      <div class="laneCol" data-lane="3" style="left:75%;width:25%;"><span class="keyLabel">P</span></div>
+      <div class="laneCol" data-lane="0" style="left:0;width:25%;"><span class="keyLabel">H</span></div>
+      <div class="laneCol" data-lane="1" style="left:25%;width:25%;"><span class="keyLabel">J</span></div>
+      <div class="laneCol" data-lane="2" style="left:50%;width:25%;"><span class="keyLabel">K</span></div>
+      <div class="laneCol" data-lane="3" style="left:75%;width:25%;"><span class="keyLabel">L</span></div>
       <div class="judgeLine" id="judgeLine"></div>
       <div id="noteLayer"></div>
       <div id="feedbackLayer"></div>
@@ -245,12 +245,12 @@
 <script>
 (function(){
   "use strict";
-  var STORAGE_KEY = "rhythm_yuop_v1_records";
+  var STORAGE_KEY = "rhythm_hjkl_v1_records";
   var LINE_Y = 84;
   var PERFECT_TOL = 3.5;
   var GOOD_TOL = 7.5;
   var CHART_DURATION = 30;
-  var LANE_KEYS = {"y":0, "u":1, "o":2, "p":3};
+  var LANE_KEYS = {"h":0, "j":1, "k":2, "l":3};
   var LANE_COLOR = ["#ff4da6", "#4dd8ff", "#ff4da6", "#4dd8ff"];
 
   function mulberry32(seed){
@@ -482,7 +482,7 @@
       combo: state.bestComboThisRound
     });
     saveRecords(records);
-    el.resultTitle.textContent = result === "success" ? "성공" : "실패";
+    el.resultTitle.textContent = result === "success" ? "Clear" : "Fail";
     el.resultStats.textContent = "점수 " + state.score + " · 최대 콤보 " + state.bestComboThisRound + " · 생존 " + state.elapsed.toFixed(1) + "s";
     el.resultOverlay.classList.add("show");
     updateHud();
@@ -505,7 +505,7 @@
   }
 
   function updateHud(){
-    var modeText = {ready:"대기", playing:"진행 중", paused:"일시정지", success:"성공", fail:"실패"}[state.mode];
+    var modeText = {ready:"대기", playing:"진행 중", paused:"일시정지", success:"Clear", fail:"Fail"}[state.mode];
     el.stateText.textContent = modeText;
     el.timerText.textContent = state.elapsed.toFixed(1) + " / 30.0s";
     el.scoreText.textContent = state.score;
