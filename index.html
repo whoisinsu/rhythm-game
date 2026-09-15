@@ -3,145 +3,351 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>3레인 피하기</title>
+<title>RHYTHM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;500;600&display=swap">
 <style>
+  :root{
+    --bg:#05060f;
+    --card:#0d1126;
+    --card-border:#1c2340;
+    --cyan:#4dd8ff;
+    --pink:#ff4da6;
+    --text:#eef2fb;
+    --muted:#8088a8;
+  }
   *{box-sizing:border-box;}
-  html,body{margin:0;overflow-x:hidden;background:#12141c;color:#eef0f6;font-family:"Malgun Gothic",Arial,sans-serif;}
-  #app{max-width:640px;margin:0 auto;padding:14px 16px 32px;}
-  h1{font-size:20px;margin:0 0 6px;}
-  p.rule, p.controls{font-size:13px;line-height:1.5;margin:4px 0;color:#c7cbe0;}
-  .hud{display:flex;flex-wrap:wrap;gap:10px 18px;font-size:14px;margin:12px 0 8px;padding:8px 10px;background:#1c2030;border-radius:8px;}
-  .hud b{color:#8ecbff;}
-  #stage{position:relative;width:min(94vw,420px);height:min(55vh,460px);margin:0 auto;background:#1a1d2b;border:2px solid #333a52;border-radius:10px;overflow:hidden;}
-  .laneLine{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.08);}
-  #player{position:absolute;bottom:14%;width:14%;aspect-ratio:1/1;transform:translateX(-50%);background:#4fd67a;border-radius:6px;transition:left .08s linear;}
-  .obstacle{position:absolute;width:14%;aspect-ratio:1/1;transform:translate(-50%,-50%);background:#ff6b6b;border-radius:4px;}
-  #overlay{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(10,11,18,0.72);text-align:center;padding:16px;}
-  #overlayText{font-size:16px;font-weight:bold;white-space:pre-line;}
-  button{font-size:14px;padding:8px 12px;border-radius:6px;border:1px solid #454c68;background:#252a3d;color:#eef0f6;cursor:pointer;}
-  button:hover{background:#2f3550;}
-  button:disabled{opacity:.4;cursor:not-allowed;}
-  .controlsRow{display:flex;gap:10px;justify-content:center;margin:12px 0;flex-wrap:wrap;}
-  .settings{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;font-size:13px;margin:14px 0;padding:10px;background:#1c2030;border-radius:8px;}
+  html,body{margin:0;overflow-x:hidden;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(1px 1px at 8% 18%, rgba(255,255,255,.55) 0, transparent 60%),
+      radial-gradient(1px 1px at 82% 12%, rgba(255,255,255,.4) 0, transparent 60%),
+      radial-gradient(1px 1px at 40% 75%, rgba(255,255,255,.35) 0, transparent 60%),
+      radial-gradient(1px 1px at 65% 40%, rgba(255,255,255,.3) 0, transparent 60%),
+      radial-gradient(1px 1px at 92% 82%, rgba(255,255,255,.4) 0, transparent 60%),
+      radial-gradient(1px 1px at 22% 88%, rgba(255,255,255,.3) 0, transparent 60%),
+      radial-gradient(1px 1px at 55% 8%, rgba(255,255,255,.35) 0, transparent 60%),
+      radial-gradient(ellipse 80% 50% at 50% -10%, #131a3a 0%, var(--bg) 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+  }
+  button{font-family:inherit;}
+
+  /* ---------- menu screen ---------- */
+  #menuScreen{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:32px 20px;
+    gap:18px;
+  }
+  #menuScreen h1{
+    font-family:'Bungee',cursive;
+    font-size:clamp(40px,10vw,72px);
+    margin:0;
+    letter-spacing:.02em;
+    background:linear-gradient(90deg,var(--pink),var(--cyan));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    filter:drop-shadow(0 0 18px rgba(77,216,255,.35)) drop-shadow(0 0 28px rgba(255,77,166,.25));
+  }
+  #menuScreen .rule{
+    max-width:440px;
+    font-size:14px;
+    line-height:1.6;
+    color:var(--muted);
+    margin:0;
+  }
+  #startBtn{
+    margin-top:8px;
+    padding:14px 46px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.25);
+    background:linear-gradient(90deg,var(--pink),var(--cyan));
+    color:#04050c;
+    font-size:16px;
+    font-weight:600;
+    cursor:pointer;
+    box-shadow:0 0 24px rgba(255,77,166,.35), 0 0 24px rgba(77,216,255,.25);
+  }
+  #startBtn:hover{filter:brightness(1.08);}
+  #menuScreen .keys{
+    font-size:13px;
+    color:var(--muted);
+  }
+  #menuScreen .keys b{color:var(--text);letter-spacing:.08em;}
+
+  /* ---------- game screen ---------- */
+  #gameScreen{display:none;min-height:100vh;padding:16px 16px 40px;}
+  #gameScreen.active{display:block;}
+  .wrap{max-width:640px;margin:0 auto;}
+
+  .hud{
+    display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;
+    background:var(--card);border:1px solid var(--card-border);border-radius:10px;
+    padding:10px 14px;margin-bottom:10px;
+  }
+  .hud b{color:var(--cyan);font-variant-numeric:tabular-nums;}
+
+  .healthOuter{
+    height:10px;border-radius:6px;background:#151a33;overflow:hidden;margin-bottom:12px;
+    border:1px solid var(--card-border);
+  }
+  .healthInner{
+    height:100%;width:100%;
+    background:linear-gradient(90deg,var(--pink),var(--cyan));
+    transition:width .12s linear;
+  }
+
+  #lanes{
+    position:relative;
+    width:100%;
+    height:min(58vh,480px);
+    background:#0a0c1c;
+    border:1px solid var(--card-border);
+    border-radius:14px;
+    overflow:hidden;
+  }
+  .blob{
+    position:absolute;border-radius:50%;filter:blur(40px);opacity:.28;pointer-events:none;
+  }
+  .laneCol{
+    position:absolute;top:0;bottom:0;border-right:1px solid rgba(255,255,255,.06);
+  }
+  .laneCol:last-child{border-right:none;}
+  .judgeLine{
+    position:absolute;left:0;right:0;height:3px;
+    background:linear-gradient(90deg,var(--pink),var(--cyan));
+    box-shadow:0 0 14px rgba(255,255,255,.5);
+  }
+  .keyLabel{
+    position:absolute;bottom:6px;left:0;right:0;text-align:center;
+    font-size:14px;font-weight:600;color:var(--muted);
+    letter-spacing:.05em;
+  }
+  .laneCol.flash .keyLabel{color:var(--text);}
+  .note{
+    position:absolute;left:8%;right:8%;height:8%;border-radius:8px;
+    box-shadow:0 0 10px currentColor;
+  }
+  .feedback{
+    position:absolute;left:0;right:0;text-align:center;
+    font-size:14px;font-weight:600;pointer-events:none;
+    animation:popFade .45s ease-out forwards;
+  }
+  .feedback.still{animation:none;opacity:0;transition:opacity .3s ease-out;}
+  @keyframes popFade{
+    0%{transform:translateY(0);opacity:1;}
+    100%{transform:translateY(-26px);opacity:0;}
+  }
+
+  #resultOverlay{
+    position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;background:rgba(4,5,12,.82);text-align:center;padding:20px;
+  }
+  #resultOverlay.show{display:flex;}
+  #resultOverlay h2{margin:0;font-size:26px;font-family:'Bungee',cursive;letter-spacing:.02em;}
+  #resultOverlay .stats{font-size:14px;color:var(--muted);}
+  .overlayBtns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+
+  button.pill{
+    padding:9px 20px;border-radius:999px;border:1px solid rgba(255,255,255,.25);
+    background:var(--card);color:var(--text);cursor:pointer;font-size:14px;
+  }
+  button.pill.primary{
+    background:linear-gradient(90deg,var(--pink),var(--cyan));color:#04050c;font-weight:600;border:none;
+  }
+  button.pill:hover{filter:brightness(1.1);}
+
+  .controlsRow{display:flex;gap:10px;justify-content:center;margin:14px 0;flex-wrap:wrap;}
+
+  .settings{
+    display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;font-size:13px;
+    background:var(--card);border:1px solid var(--card-border);border-radius:10px;
+    padding:10px 14px;margin:14px 0;
+  }
   .settings label{display:flex;align-items:center;gap:6px;white-space:nowrap;}
   .settings input[type=number]{width:70px;}
-  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
-  th,td{border:1px solid #333a52;padding:4px 6px;text-align:center;}
-  th{background:#1c2030;}
-  #player.shake{animation:shake .3s;}
-  @keyframes shake{0%,100%{transform:translateX(-50%);}25%{transform:translate(-50%,-4px);}50%{transform:translate(calc(-50% + 4px),0);}75%{transform:translate(calc(-50% - 4px),0);}}
+
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px;}
+  th,td{border:1px solid var(--card-border);padding:4px 6px;text-align:center;}
+  th{background:var(--card);}
 </style>
 </head>
 <body>
-<div id="app">
-  <h1>3레인 피하기</h1>
-  <p class="rule">규칙: 위에서 떨어지는 빨간 도형을 피해 30초를 버티면 성공, 부딪히면 실패입니다.</p>
-  <p class="controls">조작: ← → 또는 A D (레인 이동) · P (일시정지/재개) · Space/Enter (시작·다시 시작)</p>
 
-  <div class="hud">
-    <span>상태: <b id="stateText">대기</b></span>
-    <span>시간: <b id="timerText">0.0 / 30.0s</b></span>
-    <span>최고 기록: <b id="bestText">0.0s</b></span>
-  </div>
+<div id="menuScreen">
+  <h1>RHYTHM</h1>
+  <p class="rule">Y U O P 키로 내려오는 노트를 판정선에서 맞추세요.<br>체력이 0이 되면 실패, 30초를 버티면 성공입니다.</p>
+  <button id="startBtn">시작</button>
+  <p class="keys">사용 키: <b>Y</b> <b>U</b> <b>O</b> <b>P</b> · 일시정지: <b>Esc</b></p>
+</div>
 
-  <div id="stage">
-    <div class="laneLine" style="left:33.333%"></div>
-    <div class="laneLine" style="left:66.666%"></div>
-    <div id="obstacleLayer"></div>
-    <div id="player"></div>
-    <div id="overlay">
-      <div id="overlayText">시작을 누르세요</div>
-      <button id="startBtn">시작</button>
+<div id="gameScreen">
+  <div class="wrap">
+    <div class="hud">
+      <span>상태: <b id="stateText">대기</b></span>
+      <span>시간: <b id="timerText">0.0 / 30.0s</b></span>
+      <span>점수: <b id="scoreText">0</b></span>
+      <span>콤보: <b id="comboText">0</b></span>
+      <span>최고 점수: <b id="bestScoreText">0</b></span>
+      <span>최고 콤보: <b id="bestComboText">0</b></span>
     </div>
-  </div>
+    <div class="healthOuter"><div class="healthInner" id="healthBar"></div></div>
 
-  <div class="controlsRow">
-    <button id="leftBtn">◀ 레인</button>
-    <button id="pauseBtn">일시정지</button>
-    <button id="rightBtn">레인 ▶</button>
-  </div>
+    <div id="lanes">
+      <div class="blob" style="width:220px;height:220px;left:-40px;top:-30px;background:var(--pink);"></div>
+      <div class="blob" style="width:260px;height:260px;right:-60px;bottom:-40px;background:var(--cyan);"></div>
+      <div class="laneCol" data-lane="0" style="left:0;width:25%;"><span class="keyLabel">Y</span></div>
+      <div class="laneCol" data-lane="1" style="left:25%;width:25%;"><span class="keyLabel">U</span></div>
+      <div class="laneCol" data-lane="2" style="left:50%;width:25%;"><span class="keyLabel">O</span></div>
+      <div class="laneCol" data-lane="3" style="left:75%;width:25%;"><span class="keyLabel">P</span></div>
+      <div class="judgeLine" id="judgeLine"></div>
+      <div id="noteLayer"></div>
+      <div id="feedbackLayer"></div>
 
-  <div class="settings">
-    <label>난이도(속도): <input id="speedInput" type="number" value="40" min="15" max="100" step="5"></label>
-    <label><input id="muteChk" type="checkbox"> 음소거</label>
-    <label><input id="motionChk" type="checkbox"> 화면 흔들림 줄이기</label>
-    <button id="resetSaveBtn">저장 기록 초기화</button>
-    <button id="exportBtn">기록표 CSV 내보내기</button>
-  </div>
+      <div id="resultOverlay">
+        <h2 id="resultTitle">성공</h2>
+        <p class="stats" id="resultStats"></p>
+        <div class="overlayBtns">
+          <button class="pill primary" id="restartBtn">다시 시작</button>
+          <button class="pill" id="toMenuBtn">처음으로</button>
+        </div>
+      </div>
+    </div>
 
-  <table id="logTable">
-    <thead><tr><th>#</th><th>시각</th><th>난이도(속도)</th><th>결과</th><th>생존(초)</th></tr></thead>
-    <tbody id="logBody"></tbody>
-  </table>
+    <div class="controlsRow">
+      <button class="pill" id="pauseBtn">일시정지</button>
+    </div>
+
+    <div class="settings">
+      <label>난이도(속도): <input id="speedInput" type="number" value="55" min="25" max="140" step="5"></label>
+      <label><input id="muteChk" type="checkbox"> 음소거</label>
+      <label><input id="motionChk" type="checkbox"> 화면 효과 줄이기</label>
+      <button class="pill" id="resetSaveBtn">저장 기록 초기화</button>
+      <button class="pill" id="exportBtn">기록표 CSV 내보내기</button>
+    </div>
+
+    <table id="logTable">
+      <thead><tr><th>#</th><th>시각</th><th>난이도(속도)</th><th>결과</th><th>점수</th><th>최대콤보</th></tr></thead>
+      <tbody id="logBody"></tbody>
+    </table>
+  </div>
 </div>
 
 <script>
 (function(){
   "use strict";
-  var STORAGE_KEY = "lane_dodge_v1_records";
-  var PLAYER_TOP = 86;   // percent from top of stage where player sits
-  var HIT_TOL = 7;       // percent tolerance band for collision
+  var STORAGE_KEY = "rhythm_yuop_v1_records";
+  var LINE_Y = 84;
+  var PERFECT_TOL = 3.5;
+  var GOOD_TOL = 7.5;
+  var CHART_DURATION = 30;
+  var LANE_KEYS = {"y":0, "u":1, "o":2, "p":3};
+  var LANE_COLOR = ["#ff4da6", "#4dd8ff", "#ff4da6", "#4dd8ff"];
+
+  function mulberry32(seed){
+    return function(){
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function buildChart(){
+    var rng = mulberry32(20260915);
+    var notes = [];
+    var t = 1.6;
+    var interval = 0.55;
+    while(t < CHART_DURATION - 1.2){
+      var lane = Math.floor(rng() * 4);
+      notes.push({ time: t, lane: lane, judged: false });
+      if(rng() < 0.16){
+        var lane2 = (lane + 1 + Math.floor(rng() * 3)) % 4;
+        notes.push({ time: t, lane: lane2, judged: false });
+      }
+      t += interval + (rng() - 0.5) * 0.12;
+    }
+    return notes;
+  }
 
   function loadRecords(){
     try{
       var raw = localStorage.getItem(STORAGE_KEY);
-      if(!raw) return {best:0, logs:[]};
-      var parsed = JSON.parse(raw);
-      if(!parsed || typeof parsed !== "object" || typeof parsed.best !== "number" || !Array.isArray(parsed.logs)){
-        return {best:0, logs:[]};
+      if(!raw) return {bestScore:0, bestCombo:0, logs:[]};
+      var p = JSON.parse(raw);
+      if(!p || typeof p !== "object" || typeof p.bestScore !== "number" || typeof p.bestCombo !== "number" || !Array.isArray(p.logs)){
+        return {bestScore:0, bestCombo:0, logs:[]};
       }
-      return parsed;
+      return p;
     }catch(e){
-      return {best:0, logs:[]};
+      return {bestScore:0, bestCombo:0, logs:[]};
     }
   }
   function saveRecords(rec){
-    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(rec)); }catch(e){ /* ignore quota/private-mode errors */ }
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(rec)); }catch(e){}
   }
 
   var records = loadRecords();
 
   var state = {
-    mode: "ready", // ready | playing | paused | success | fail
-    lane: 1,
-    obstacles: [],
+    mode: "ready",
+    notes: [],
     elapsed: 0,
-    spawnTimer: 0,
-    spawnInterval: 0.9,
-    speed: 40,
+    speed: 55,
+    health: 100,
+    score: 0,
+    combo: 0,
+    bestComboThisRound: 0,
     lastTime: 0,
     muted: false,
     reduceMotion: false
   };
 
   var el = {
+    menuScreen: document.getElementById("menuScreen"),
+    gameScreen: document.getElementById("gameScreen"),
+    startBtn: document.getElementById("startBtn"),
     stateText: document.getElementById("stateText"),
     timerText: document.getElementById("timerText"),
-    bestText: document.getElementById("bestText"),
-    stage: document.getElementById("stage"),
-    obstacleLayer: document.getElementById("obstacleLayer"),
-    player: document.getElementById("player"),
-    overlay: document.getElementById("overlay"),
-    overlayText: document.getElementById("overlayText"),
-    startBtn: document.getElementById("startBtn"),
-    leftBtn: document.getElementById("leftBtn"),
-    rightBtn: document.getElementById("rightBtn"),
+    scoreText: document.getElementById("scoreText"),
+    comboText: document.getElementById("comboText"),
+    bestScoreText: document.getElementById("bestScoreText"),
+    bestComboText: document.getElementById("bestComboText"),
+    healthBar: document.getElementById("healthBar"),
+    lanes: document.getElementById("lanes"),
+    noteLayer: document.getElementById("noteLayer"),
+    feedbackLayer: document.getElementById("feedbackLayer"),
+    resultOverlay: document.getElementById("resultOverlay"),
+    resultTitle: document.getElementById("resultTitle"),
+    resultStats: document.getElementById("resultStats"),
+    restartBtn: document.getElementById("restartBtn"),
+    toMenuBtn: document.getElementById("toMenuBtn"),
     pauseBtn: document.getElementById("pauseBtn"),
     speedInput: document.getElementById("speedInput"),
     muteChk: document.getElementById("muteChk"),
     motionChk: document.getElementById("motionChk"),
     resetSaveBtn: document.getElementById("resetSaveBtn"),
     exportBtn: document.getElementById("exportBtn"),
-    logBody: document.getElementById("logBody")
+    logBody: document.getElementById("logBody"),
+    laneCols: Array.prototype.slice.call(document.querySelectorAll(".laneCol"))
   };
 
   var audioCtx = null;
   function ensureAudio(){
     if(!audioCtx){
-      try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ audioCtx = null; }
+      try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){ audioCtx = null; }
     }
   }
-  function playSound(type){
+  function beep(freq, dur, gainVal){
     if(state.muted) return;
     ensureAudio();
     if(!audioCtx) return;
@@ -149,34 +355,49 @@
       var o = audioCtx.createOscillator();
       var g = audioCtx.createGain();
       o.connect(g); g.connect(audioCtx.destination);
-      g.gain.value = 0.12;
+      g.gain.value = gainVal || 0.1;
+      o.frequency.value = freq;
       var now = audioCtx.currentTime;
-      if(type === "win"){
-        o.frequency.value = 880;
-        o.frequency.linearRampToValueAtTime(1320, now + 0.15);
-        o.start(now); o.stop(now + 0.18);
-      } else {
-        o.frequency.value = 220;
-        o.frequency.linearRampToValueAtTime(90, now + 0.2);
-        o.start(now); o.stop(now + 0.22);
-      }
-    }catch(e){ /* audio not available, ignore */ }
+      o.start(now); o.stop(now + dur);
+    }catch(e){}
+  }
+  function playJudgeSound(kind){
+    if(kind === "PERFECT") beep(1046, 0.09, 0.09);
+    else if(kind === "GOOD") beep(660, 0.08, 0.08);
+    else if(kind === "MISS") beep(160, 0.16, 0.09);
+    else if(kind === "success") beep(880, 0.16, 0.1);
+    else if(kind === "fail") beep(120, 0.3, 0.1);
   }
 
   function clampSpeed(v){
-    if(!isFinite(v)) return 40;
-    return Math.min(100, Math.max(15, v));
+    if(!isFinite(v)) return 55;
+    return Math.min(140, Math.max(25, v));
   }
 
-  function moveLane(delta){
-    if(state.mode !== "playing") return;
-    state.lane = Math.min(2, Math.max(0, state.lane + delta));
+  function showFeedback(lane, text, colorClass){
+    if(state.reduceMotion) return;
+    var d = document.createElement("div");
+    d.className = "feedback";
+    d.textContent = text;
+    d.style.top = (LINE_Y - 8) + "%";
+    d.style.left = (lane * 25) + "%";
+    d.style.width = "25%";
+    d.style.color = colorClass;
+    el.feedbackLayer.appendChild(d);
+    setTimeout(function(){ d.remove(); }, 460);
+  }
+
+  function flashLane(lane){
+    if(state.reduceMotion) return;
+    var col = el.laneCols[lane];
+    col.classList.add("flash");
+    setTimeout(function(){ col.classList.remove("flash"); }, 120);
   }
 
   function togglePause(){
     if(state.mode === "playing"){
       state.mode = "paused";
-    } else if(state.mode === "paused"){
+    }else if(state.mode === "paused"){
       state.mode = "playing";
       state.lastTime = 0;
     }
@@ -184,60 +405,102 @@
   }
 
   function startRound(){
+    el.menuScreen.style.display = "none";
+    el.gameScreen.classList.add("active");
     state.mode = "playing";
-    state.lane = 1;
-    state.obstacles = [];
+    state.notes = buildChart();
     state.elapsed = 0;
-    state.spawnTimer = 0;
+    state.health = 100;
+    state.score = 0;
+    state.combo = 0;
+    state.bestComboThisRound = 0;
     state.speed = clampSpeed(Number(el.speedInput.value));
     el.speedInput.value = state.speed;
     state.lastTime = 0;
+    el.resultOverlay.classList.remove("show");
+    updateHud();
+  }
+
+  function backToMenu(){
+    state.mode = "ready";
+    el.resultOverlay.classList.remove("show");
+    el.gameScreen.classList.remove("active");
+    el.menuScreen.style.display = "flex";
+  }
+
+  function judgeMiss(note){
+    note.judged = true;
+    state.combo = 0;
+    state.health = Math.max(0, state.health - 12);
+    showFeedback(note.lane, "MISS", "var(--muted)");
+    playJudgeSound("MISS");
+    if(state.health <= 0){
+      endRound("fail");
+    }
+  }
+
+  function tryHit(lane){
+    if(state.mode !== "playing") return;
+    var best = null, bestDiff = Infinity;
+    for(var i = 0; i < state.notes.length; i++){
+      var n = state.notes[i];
+      if(n.judged || n.lane !== lane) continue;
+      var y = LINE_Y - (n.time - state.elapsed) * state.speed;
+      var diff = Math.abs(y - LINE_Y);
+      if(diff <= GOOD_TOL && diff < bestDiff){ best = n; bestDiff = diff; }
+    }
+    if(!best) return;
+    best.judged = true;
+    flashLane(lane);
+    if(bestDiff <= PERFECT_TOL){
+      state.score += 300;
+      state.health = Math.min(100, state.health + 1);
+      state.combo += 1;
+      showFeedback(lane, "PERFECT", "var(--cyan)");
+      playJudgeSound("PERFECT");
+    }else{
+      state.score += 100;
+      state.combo += 1;
+      showFeedback(lane, "GOOD", "var(--pink)");
+      playJudgeSound("GOOD");
+    }
+    if(state.combo > state.bestComboThisRound) state.bestComboThisRound = state.combo;
     updateHud();
   }
 
   function endRound(result){
     state.mode = result;
-    playSound(result === "success" ? "win" : "lose");
-    if(result === "fail" && !state.reduceMotion){
-      el.player.classList.add("shake");
-      setTimeout(function(){ el.player.classList.remove("shake"); }, 300);
-    }
-    if(result === "success" && state.elapsed > records.best){
-      records.best = state.elapsed;
-    }
+    playJudgeSound(result);
+    if(state.score > records.bestScore) records.bestScore = state.score;
+    if(state.bestComboThisRound > records.bestCombo) records.bestCombo = state.bestComboThisRound;
     records.logs.push({
       n: records.logs.length + 1,
       time: new Date().toISOString(),
       speed: state.speed,
       result: result,
-      survived: Number(state.elapsed.toFixed(2))
+      score: state.score,
+      combo: state.bestComboThisRound
     });
     saveRecords(records);
+    el.resultTitle.textContent = result === "success" ? "성공" : "실패";
+    el.resultStats.textContent = "점수 " + state.score + " · 최대 콤보 " + state.bestComboThisRound + " · 생존 " + state.elapsed.toFixed(1) + "s";
+    el.resultOverlay.classList.add("show");
     updateHud();
     renderLogTable();
   }
 
   function update(dt){
     state.elapsed += dt;
-    state.spawnTimer += dt;
-    if(state.spawnTimer >= state.spawnInterval){
-      state.spawnTimer -= state.spawnInterval;
-      state.obstacles.push({ lane: Math.floor(Math.random()*3), y: -8 });
+    for(var i = 0; i < state.notes.length; i++){
+      var n = state.notes[i];
+      if(n.judged) continue;
+      var y = LINE_Y - (n.time - state.elapsed) * state.speed;
+      if(y - LINE_Y > GOOD_TOL) judgeMiss(n);
+      if(state.mode !== "playing") return;
     }
-    for(var i=0;i<state.obstacles.length;i++){
-      state.obstacles[i].y += state.speed * dt;
-    }
-    for(var j=0;j<state.obstacles.length;j++){
-      var ob = state.obstacles[j];
-      if(ob.lane === state.lane && ob.y >= PLAYER_TOP - HIT_TOL && ob.y <= PLAYER_TOP + HIT_TOL){
-        endRound("fail");
-        return;
-      }
-    }
-    state.obstacles = state.obstacles.filter(function(o){ return o.y < 115; });
-    if(state.elapsed >= 30){
-      state.elapsed = 30;
-      endRound("success");
+    if(state.elapsed >= CHART_DURATION){
+      state.elapsed = CHART_DURATION;
+      if(state.health > 0) endRound("success");
     }
   }
 
@@ -245,83 +508,84 @@
     var modeText = {ready:"대기", playing:"진행 중", paused:"일시정지", success:"성공", fail:"실패"}[state.mode];
     el.stateText.textContent = modeText;
     el.timerText.textContent = state.elapsed.toFixed(1) + " / 30.0s";
-    el.bestText.textContent = records.best.toFixed(1) + "s";
-    var showOverlay = (state.mode === "ready" || state.mode === "success" || state.mode === "fail");
-    el.overlay.style.display = showOverlay ? "flex" : "none";
-    el.overlayText.textContent =
-      state.mode === "ready" ? "시작을 누르세요" :
-      state.mode === "success" ? "성공!\n다시 시작하려면 버튼 또는 Space" :
-      state.mode === "fail" ? "실패!\n다시 시작하려면 버튼 또는 Space" : "";
-    el.startBtn.textContent = state.mode === "ready" ? "시작" : "다시 시작";
+    el.scoreText.textContent = state.score;
+    el.comboText.textContent = state.combo;
+    el.bestScoreText.textContent = records.bestScore;
+    el.bestComboText.textContent = records.bestCombo;
+    el.healthBar.style.width = state.health + "%";
     el.pauseBtn.disabled = !(state.mode === "playing" || state.mode === "paused");
     el.pauseBtn.textContent = state.mode === "paused" ? "재개" : "일시정지";
     el.speedInput.disabled = (state.mode === "playing" || state.mode === "paused");
   }
 
   function render(){
-    el.player.style.left = ((state.lane + 0.5) / 3 * 100) + "%";
-    el.player.style.top = PLAYER_TOP + "%";
-    el.player.style.transform = "translate(-50%, -50%)";
-    el.obstacleLayer.innerHTML = "";
-    for(var i=0;i<state.obstacles.length;i++){
-      var ob = state.obstacles[i];
+    el.noteLayer.innerHTML = "";
+    for(var i = 0; i < state.notes.length; i++){
+      var n = state.notes[i];
+      if(n.judged) continue;
+      var y = LINE_Y - (n.time - state.elapsed) * state.speed;
+      if(y < -12 || y > 112) continue;
       var d = document.createElement("div");
-      d.className = "obstacle";
-      d.style.left = ((ob.lane + 0.5) / 3 * 100) + "%";
-      d.style.top = ob.y + "%";
-      el.obstacleLayer.appendChild(d);
+      d.className = "note";
+      d.style.left = (n.lane * 25 + 2) + "%";
+      d.style.width = "21%";
+      d.style.top = y + "%";
+      d.style.background = LANE_COLOR[n.lane];
+      d.style.color = LANE_COLOR[n.lane];
+      el.noteLayer.appendChild(d);
     }
   }
 
   function renderLogTable(){
     el.logBody.innerHTML = "";
-    for(var i=0;i<records.logs.length;i++){
+    for(var i = 0; i < records.logs.length; i++){
       var r = records.logs[i];
       var tr = document.createElement("tr");
-      tr.innerHTML = "<td>"+r.n+"</td><td>"+r.time+"</td><td>"+r.speed+"</td><td>"+r.result+"</td><td>"+r.survived+"</td>";
+      tr.innerHTML = "<td>"+r.n+"</td><td>"+r.time+"</td><td>"+r.speed+"</td><td>"+r.result+"</td><td>"+r.score+"</td><td>"+r.combo+"</td>";
       el.logBody.appendChild(tr);
     }
   }
 
   function exportCSV(){
-    var header = "n,time,speed,result,survived_seconds\n";
+    var header = "n,time,speed,result,score,best_combo\n";
     var rows = records.logs.map(function(r){
-      return r.n + "," + r.time + "," + r.speed + "," + r.result + "," + r.survived;
+      return r.n + "," + r.time + "," + r.speed + "," + r.result + "," + r.score + "," + r.combo;
     }).join("\n");
     var blob = new Blob([header + rows], {type: "text/csv;charset=utf-8"});
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
-    a.href = url; a.download = "play_records.csv";
+    a.href = url; a.download = "rhythm_records.csv";
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
 
   function handleKeydown(e){
     if(e.repeat) return;
-    switch(e.key){
-      case "ArrowLeft": case "a": case "A": moveLane(-1); break;
-      case "ArrowRight": case "d": case "D": moveLane(1); break;
-      case "p": case "P": togglePause(); break;
-      case " ": case "Enter":
-        if(state.mode === "ready" || state.mode === "success" || state.mode === "fail"){ startRound(); }
-        e.preventDefault();
-        break;
+    var k = e.key.toLowerCase();
+    if(k in LANE_KEYS){
+      tryHit(LANE_KEYS[k]);
+      return;
+    }
+    if(k === "escape"){
+      togglePause();
+      return;
+    }
+    if(k === " " || k === "enter"){
+      if(state.mode === "ready"){ startRound(); e.preventDefault(); }
+      else if(state.mode === "success" || state.mode === "fail"){ startRound(); e.preventDefault(); }
     }
   }
 
   window.addEventListener("keydown", handleKeydown);
-  el.leftBtn.addEventListener("click", function(){ moveLane(-1); });
-  el.rightBtn.addEventListener("click", function(){ moveLane(1); });
-  el.pauseBtn.addEventListener("click", togglePause);
   el.startBtn.addEventListener("click", startRound);
+  el.restartBtn.addEventListener("click", startRound);
+  el.toMenuBtn.addEventListener("click", backToMenu);
+  el.pauseBtn.addEventListener("click", togglePause);
   el.muteChk.addEventListener("change", function(e){ state.muted = e.target.checked; });
-  el.motionChk.addEventListener("change", function(e){
-    state.reduceMotion = e.target.checked;
-    if(state.reduceMotion){ el.player.classList.remove("shake"); }
-  });
+  el.motionChk.addEventListener("change", function(e){ state.reduceMotion = e.target.checked; });
   el.resetSaveBtn.addEventListener("click", function(){
     if(confirm("저장된 기록을 초기화할까요?")){
-      records = {best:0, logs:[]};
+      records = {bestScore:0, bestCombo:0, logs:[]};
       saveRecords(records);
       updateHud();
       renderLogTable();
@@ -353,6 +617,8 @@
     render();
     requestAnimationFrame(tick);
   }
+
+  document.getElementById("judgeLine").style.top = LINE_Y + "%";
 
   updateHud();
   renderLogTable();
