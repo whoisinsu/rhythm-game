@@ -148,6 +148,24 @@
     100%{transform:translateY(-26px);opacity:0;}
   }
 
+  #countdownOverlay{
+    position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    background:rgba(4,5,12,.55);pointer-events:none;
+  }
+  #countdownOverlay.show{display:flex;}
+  #countdownOverlay span{
+    font-family:'Bungee',cursive;font-size:96px;line-height:1;
+    background:linear-gradient(90deg,var(--pink),var(--cyan));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 18px rgba(77,216,255,.4)) drop-shadow(0 0 26px rgba(255,77,166,.3));
+    animation:countPulse .5s ease-out;
+  }
+  #countdownOverlay.noMotion span{animation:none;}
+  @keyframes countPulse{
+    0%{transform:scale(1.5);opacity:0;}
+    100%{transform:scale(1);opacity:1;}
+  }
+
   #resultOverlay{
     position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
     gap:14px;background:rgba(4,5,12,.82);text-align:center;padding:20px;
@@ -212,6 +230,8 @@
       <div class="judgeLine" id="judgeLine"></div>
       <div id="noteLayer"></div>
       <div id="feedbackLayer"></div>
+
+      <div id="countdownOverlay"><span id="countdownNum">3</span></div>
 
       <div id="resultOverlay">
         <h2 id="resultTitle">성공</h2>
@@ -300,6 +320,7 @@
 
   var state = {
     mode: "ready",
+    pausedFrom: "playing",
     notes: [],
     elapsed: 0,
     speed: 55,
@@ -309,7 +330,9 @@
     bestComboThisRound: 0,
     lastTime: 0,
     muted: false,
-    reduceMotion: false
+    reduceMotion: false,
+    countdownValue: 3,
+    countdownTimer: 0
   };
 
   var el = {
@@ -329,6 +352,8 @@
     resultOverlay: document.getElementById("resultOverlay"),
     resultTitle: document.getElementById("resultTitle"),
     resultStats: document.getElementById("resultStats"),
+    countdownOverlay: document.getElementById("countdownOverlay"),
+    countdownNum: document.getElementById("countdownNum"),
     restartBtn: document.getElementById("restartBtn"),
     toMenuBtn: document.getElementById("toMenuBtn"),
     pauseBtn: document.getElementById("pauseBtn"),
@@ -395,10 +420,11 @@
   }
 
   function togglePause(){
-    if(state.mode === "playing"){
+    if(state.mode === "playing" || state.mode === "countdown"){
+      state.pausedFrom = state.mode;
       state.mode = "paused";
     }else if(state.mode === "paused"){
-      state.mode = "playing";
+      state.mode = state.pausedFrom;
       state.lastTime = 0;
     }
     updateHud();
@@ -407,7 +433,9 @@
   function startRound(){
     el.menuScreen.style.display = "none";
     el.gameScreen.classList.add("active");
-    state.mode = "playing";
+    state.mode = "countdown";
+    state.countdownValue = 3;
+    state.countdownTimer = 0;
     state.notes = buildChart();
     state.elapsed = 0;
     state.health = 100;
@@ -418,7 +446,30 @@
     el.speedInput.value = state.speed;
     state.lastTime = 0;
     el.resultOverlay.classList.remove("show");
+    bumpCountdownDisplay();
     updateHud();
+  }
+
+  function bumpCountdownDisplay(){
+    el.countdownNum.textContent = state.countdownValue;
+    el.countdownNum.style.animation = "none";
+    void el.countdownNum.offsetWidth;
+    el.countdownNum.style.animation = "";
+  }
+
+  function updateCountdown(dt){
+    state.countdownTimer += dt;
+    if(state.countdownTimer >= 1){
+      state.countdownTimer -= 1;
+      state.countdownValue -= 1;
+      if(state.countdownValue <= 0){
+        state.mode = "playing";
+        updateHud();
+      }else{
+        beep(440, 0.08, 0.08);
+        bumpCountdownDisplay();
+      }
+    }
   }
 
   function backToMenu(){
@@ -505,7 +556,7 @@
   }
 
   function updateHud(){
-    var modeText = {ready:"대기", playing:"진행 중", paused:"일시정지", success:"Clear", fail:"Fail"}[state.mode];
+    var modeText = {ready:"대기", countdown:"준비", playing:"진행 중", paused:"일시정지", success:"Clear", fail:"Fail"}[state.mode];
     el.stateText.textContent = modeText;
     el.timerText.textContent = state.elapsed.toFixed(1) + " / 30.0s";
     el.scoreText.textContent = state.score;
@@ -513,9 +564,12 @@
     el.bestScoreText.textContent = records.bestScore;
     el.bestComboText.textContent = records.bestCombo;
     el.healthBar.style.width = state.health + "%";
-    el.pauseBtn.disabled = !(state.mode === "playing" || state.mode === "paused");
+    el.pauseBtn.disabled = !(state.mode === "playing" || state.mode === "paused" || state.mode === "countdown");
     el.pauseBtn.textContent = state.mode === "paused" ? "재개" : "일시정지";
-    el.speedInput.disabled = (state.mode === "playing" || state.mode === "paused");
+    el.speedInput.disabled = (state.mode === "playing" || state.mode === "paused" || state.mode === "countdown");
+    el.countdownOverlay.classList.toggle("show", state.mode === "countdown");
+    if(state.reduceMotion) el.countdownOverlay.classList.add("noMotion");
+    else el.countdownOverlay.classList.remove("noMotion");
   }
 
   function render(){
@@ -594,13 +648,15 @@
   el.exportBtn.addEventListener("click", exportCSV);
 
   document.addEventListener("visibilitychange", function(){
-    if(document.hidden && state.mode === "playing"){
+    if(document.hidden && (state.mode === "playing" || state.mode === "countdown")){
+      state.pausedFrom = state.mode;
       state.mode = "paused";
       updateHud();
     }
   });
   window.addEventListener("blur", function(){
-    if(state.mode === "playing"){
+    if(state.mode === "playing" || state.mode === "countdown"){
+      state.pausedFrom = state.mode;
       state.mode = "paused";
       updateHud();
     }
@@ -613,6 +669,8 @@
     if(dt > 0.05) dt = 0.05;
     if(state.mode === "playing"){
       update(dt);
+    }else if(state.mode === "countdown"){
+      updateCountdown(dt);
     }
     render();
     requestAnimationFrame(tick);
