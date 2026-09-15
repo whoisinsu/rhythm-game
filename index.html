@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3레인 피하기</title>
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;overflow-x:hidden;background:#12141c;color:#eef0f6;font-family:"Malgun Gothic",Arial,sans-serif;}
+  #app{max-width:640px;margin:0 auto;padding:14px 16px 32px;}
+  h1{font-size:20px;margin:0 0 6px;}
+  p.rule, p.controls{font-size:13px;line-height:1.5;margin:4px 0;color:#c7cbe0;}
+  .hud{display:flex;flex-wrap:wrap;gap:10px 18px;font-size:14px;margin:12px 0 8px;padding:8px 10px;background:#1c2030;border-radius:8px;}
+  .hud b{color:#8ecbff;}
+  #stage{position:relative;width:min(94vw,420px);height:min(55vh,460px);margin:0 auto;background:#1a1d2b;border:2px solid #333a52;border-radius:10px;overflow:hidden;}
+  .laneLine{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.08);}
+  #player{position:absolute;bottom:14%;width:14%;aspect-ratio:1/1;transform:translateX(-50%);background:#4fd67a;border-radius:6px;transition:left .08s linear;}
+  .obstacle{position:absolute;width:14%;aspect-ratio:1/1;transform:translate(-50%,-50%);background:#ff6b6b;border-radius:4px;}
+  #overlay{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(10,11,18,0.72);text-align:center;padding:16px;}
+  #overlayText{font-size:16px;font-weight:bold;white-space:pre-line;}
+  button{font-size:14px;padding:8px 12px;border-radius:6px;border:1px solid #454c68;background:#252a3d;color:#eef0f6;cursor:pointer;}
+  button:hover{background:#2f3550;}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  .controlsRow{display:flex;gap:10px;justify-content:center;margin:12px 0;flex-wrap:wrap;}
+  .settings{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;font-size:13px;margin:14px 0;padding:10px;background:#1c2030;border-radius:8px;}
+  .settings label{display:flex;align-items:center;gap:6px;white-space:nowrap;}
+  .settings input[type=number]{width:70px;}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+  th,td{border:1px solid #333a52;padding:4px 6px;text-align:center;}
+  th{background:#1c2030;}
+  #player.shake{animation:shake .3s;}
+  @keyframes shake{0%,100%{transform:translateX(-50%);}25%{transform:translate(-50%,-4px);}50%{transform:translate(calc(-50% + 4px),0);}75%{transform:translate(calc(-50% - 4px),0);}}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>3레인 피하기</h1>
+  <p class="rule">규칙: 위에서 떨어지는 빨간 도형을 피해 30초를 버티면 성공, 부딪히면 실패입니다.</p>
+  <p class="controls">조작: ← → 또는 A D (레인 이동) · P (일시정지/재개) · Space/Enter (시작·다시 시작)</p>
+
+  <div class="hud">
+    <span>상태: <b id="stateText">대기</b></span>
+    <span>시간: <b id="timerText">0.0 / 30.0s</b></span>
+    <span>최고 기록: <b id="bestText">0.0s</b></span>
+  </div>
+
+  <div id="stage">
+    <div class="laneLine" style="left:33.333%"></div>
+    <div class="laneLine" style="left:66.666%"></div>
+    <div id="obstacleLayer"></div>
+    <div id="player"></div>
+    <div id="overlay">
+      <div id="overlayText">시작을 누르세요</div>
+      <button id="startBtn">시작</button>
+    </div>
+  </div>
+
+  <div class="controlsRow">
+    <button id="leftBtn">◀ 레인</button>
+    <button id="pauseBtn">일시정지</button>
+    <button id="rightBtn">레인 ▶</button>
+  </div>
+
+  <div class="settings">
+    <label>난이도(속도): <input id="speedInput" type="number" value="40" min="15" max="100" step="5"></label>
+    <label><input id="muteChk" type="checkbox"> 음소거</label>
+    <label><input id="motionChk" type="checkbox"> 화면 흔들림 줄이기</label>
+    <button id="resetSaveBtn">저장 기록 초기화</button>
+    <button id="exportBtn">기록표 CSV 내보내기</button>
+  </div>
+
+  <table id="logTable">
+    <thead><tr><th>#</th><th>시각</th><th>난이도(속도)</th><th>결과</th><th>생존(초)</th></tr></thead>
+    <tbody id="logBody"></tbody>
+  </table>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var STORAGE_KEY = "lane_dodge_v1_records";
+  var PLAYER_TOP = 86;   // percent from top of stage where player sits
+  var HIT_TOL = 7;       // percent tolerance band for collision
+
+  function loadRecords(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return {best:0, logs:[]};
+      var parsed = JSON.parse(raw);
+      if(!parsed || typeof parsed !== "object" || typeof parsed.best !== "number" || !Array.isArray(parsed.logs)){
+        return {best:0, logs:[]};
+      }
+      return parsed;
+    }catch(e){
+      return {best:0, logs:[]};
+    }
+  }
+  function saveRecords(rec){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(rec)); }catch(e){ /* ignore quota/private-mode errors */ }
+  }
+
+  var records = loadRecords();
+
+  var state = {
+    mode: "ready", // ready | playing | paused | success | fail
+    lane: 1,
+    obstacles: [],
+    elapsed: 0,
+    spawnTimer: 0,
+    spawnInterval: 0.9,
+    speed: 40,
+    lastTime: 0,
+    muted: false,
+    reduceMotion: false
+  };
+
+  var el = {
+    stateText: document.getElementById("stateText"),
+    timerText: document.getElementById("timerText"),
+    bestText: document.getElementById("bestText"),
+    stage: document.getElementById("stage"),
+    obstacleLayer: document.getElementById("obstacleLayer"),
+    player: document.getElementById("player"),
+    overlay: document.getElementById("overlay"),
+    overlayText: document.getElementById("overlayText"),
+    startBtn: document.getElementById("startBtn"),
+    leftBtn: document.getElementById("leftBtn"),
+    rightBtn: document.getElementById("rightBtn"),
+    pauseBtn: document.getElementById("pauseBtn"),
+    speedInput: document.getElementById("speedInput"),
+    muteChk: document.getElementById("muteChk"),
+    motionChk: document.getElementById("motionChk"),
+    resetSaveBtn: document.getElementById("resetSaveBtn"),
+    exportBtn: document.getElementById("exportBtn"),
+    logBody: document.getElementById("logBody")
+  };
+
+  var audioCtx = null;
+  function ensureAudio(){
+    if(!audioCtx){
+      try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ audioCtx = null; }
+    }
+  }
+  function playSound(type){
+    if(state.muted) return;
+    ensureAudio();
+    if(!audioCtx) return;
+    try{
+      var o = audioCtx.createOscillator();
+      var g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      g.gain.value = 0.12;
+      var now = audioCtx.currentTime;
+      if(type === "win"){
+        o.frequency.value = 880;
+        o.frequency.linearRampToValueAtTime(1320, now + 0.15);
+        o.start(now); o.stop(now + 0.18);
+      } else {
+        o.frequency.value = 220;
+        o.frequency.linearRampToValueAtTime(90, now + 0.2);
+        o.start(now); o.stop(now + 0.22);
+      }
+    }catch(e){ /* audio not available, ignore */ }
+  }
+
+  function clampSpeed(v){
+    if(!isFinite(v)) return 40;
+    return Math.min(100, Math.max(15, v));
+  }
+
+  function moveLane(delta){
+    if(state.mode !== "playing") return;
+    state.lane = Math.min(2, Math.max(0, state.lane + delta));
+  }
+
+  function togglePause(){
+    if(state.mode === "playing"){
+      state.mode = "paused";
+    } else if(state.mode === "paused"){
+      state.mode = "playing";
+      state.lastTime = 0;
+    }
+    updateHud();
+  }
+
+  function startRound(){
+    state.mode = "playing";
+    state.lane = 1;
+    state.obstacles = [];
+    state.elapsed = 0;
+    state.spawnTimer = 0;
+    state.speed = clampSpeed(Number(el.speedInput.value));
+    el.speedInput.value = state.speed;
+    state.lastTime = 0;
+    updateHud();
+  }
+
+  function endRound(result){
+    state.mode = result;
+    playSound(result === "success" ? "win" : "lose");
+    if(result === "fail" && !state.reduceMotion){
+      el.player.classList.add("shake");
+      setTimeout(function(){ el.player.classList.remove("shake"); }, 300);
+    }
+    if(result === "success" && state.elapsed > records.best){
+      records.best = state.elapsed;
+    }
+    records.logs.push({
+      n: records.logs.length + 1,
+      time: new Date().toISOString(),
+      speed: state.speed,
+      result: result,
+      survived: Number(state.elapsed.toFixed(2))
+    });
+    saveRecords(records);
+    updateHud();
+    renderLogTable();
+  }
+
+  function update(dt){
+    state.elapsed += dt;
+    state.spawnTimer += dt;
+    if(state.spawnTimer >= state.spawnInterval){
+      state.spawnTimer -= state.spawnInterval;
+      state.obstacles.push({ lane: Math.floor(Math.random()*3), y: -8 });
+    }
+    for(var i=0;i<state.obstacles.length;i++){
+      state.obstacles[i].y += state.speed * dt;
+    }
+    for(var j=0;j<state.obstacles.length;j++){
+      var ob = state.obstacles[j];
+      if(ob.lane === state.lane && ob.y >= PLAYER_TOP - HIT_TOL && ob.y <= PLAYER_TOP + HIT_TOL){
+        endRound("fail");
+        return;
+      }
+    }
+    state.obstacles = state.obstacles.filter(function(o){ return o.y < 115; });
+    if(state.elapsed >= 30){
+      state.elapsed = 30;
+      endRound("success");
+    }
+  }
+
+  function updateHud(){
+    var modeText = {ready:"대기", playing:"진행 중", paused:"일시정지", success:"성공", fail:"실패"}[state.mode];
+    el.stateText.textContent = modeText;
+    el.timerText.textContent = state.elapsed.toFixed(1) + " / 30.0s";
+    el.bestText.textContent = records.best.toFixed(1) + "s";
+    var showOverlay = (state.mode === "ready" || state.mode === "success" || state.mode === "fail");
+    el.overlay.style.display = showOverlay ? "flex" : "none";
+    el.overlayText.textContent =
+      state.mode === "ready" ? "시작을 누르세요" :
+      state.mode === "success" ? "성공!\n다시 시작하려면 버튼 또는 Space" :
+      state.mode === "fail" ? "실패!\n다시 시작하려면 버튼 또는 Space" : "";
+    el.startBtn.textContent = state.mode === "ready" ? "시작" : "다시 시작";
+    el.pauseBtn.disabled = !(state.mode === "playing" || state.mode === "paused");
+    el.pauseBtn.textContent = state.mode === "paused" ? "재개" : "일시정지";
+    el.speedInput.disabled = (state.mode === "playing" || state.mode === "paused");
+  }
+
+  function render(){
+    el.player.style.left = ((state.lane + 0.5) / 3 * 100) + "%";
+    el.player.style.top = PLAYER_TOP + "%";
+    el.player.style.transform = "translate(-50%, -50%)";
+    el.obstacleLayer.innerHTML = "";
+    for(var i=0;i<state.obstacles.length;i++){
+      var ob = state.obstacles[i];
+      var d = document.createElement("div");
+      d.className = "obstacle";
+      d.style.left = ((ob.lane + 0.5) / 3 * 100) + "%";
+      d.style.top = ob.y + "%";
+      el.obstacleLayer.appendChild(d);
+    }
+  }
+
+  function renderLogTable(){
+    el.logBody.innerHTML = "";
+    for(var i=0;i<records.logs.length;i++){
+      var r = records.logs[i];
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td>"+r.n+"</td><td>"+r.time+"</td><td>"+r.speed+"</td><td>"+r.result+"</td><td>"+r.survived+"</td>";
+      el.logBody.appendChild(tr);
+    }
+  }
+
+  function exportCSV(){
+    var header = "n,time,speed,result,survived_seconds\n";
+    var rows = records.logs.map(function(r){
+      return r.n + "," + r.time + "," + r.speed + "," + r.result + "," + r.survived;
+    }).join("\n");
+    var blob = new Blob([header + rows], {type: "text/csv;charset=utf-8"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "play_records.csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function handleKeydown(e){
+    if(e.repeat) return;
+    switch(e.key){
+      case "ArrowLeft": case "a": case "A": moveLane(-1); break;
+      case "ArrowRight": case "d": case "D": moveLane(1); break;
+      case "p": case "P": togglePause(); break;
+      case " ": case "Enter":
+        if(state.mode === "ready" || state.mode === "success" || state.mode === "fail"){ startRound(); }
+        e.preventDefault();
+        break;
+    }
+  }
+
+  window.addEventListener("keydown", handleKeydown);
+  el.leftBtn.addEventListener("click", function(){ moveLane(-1); });
+  el.rightBtn.addEventListener("click", function(){ moveLane(1); });
+  el.pauseBtn.addEventListener("click", togglePause);
+  el.startBtn.addEventListener("click", startRound);
+  el.muteChk.addEventListener("change", function(e){ state.muted = e.target.checked; });
+  el.motionChk.addEventListener("change", function(e){
+    state.reduceMotion = e.target.checked;
+    if(state.reduceMotion){ el.player.classList.remove("shake"); }
+  });
+  el.resetSaveBtn.addEventListener("click", function(){
+    if(confirm("저장된 기록을 초기화할까요?")){
+      records = {best:0, logs:[]};
+      saveRecords(records);
+      updateHud();
+      renderLogTable();
+    }
+  });
+  el.exportBtn.addEventListener("click", exportCSV);
+
+  document.addEventListener("visibilitychange", function(){
+    if(document.hidden && state.mode === "playing"){
+      state.mode = "paused";
+      updateHud();
+    }
+  });
+  window.addEventListener("blur", function(){
+    if(state.mode === "playing"){
+      state.mode = "paused";
+      updateHud();
+    }
+  });
+
+  function tick(now){
+    if(!state.lastTime) state.lastTime = now;
+    var dt = (now - state.lastTime) / 1000;
+    state.lastTime = now;
+    if(dt > 0.05) dt = 0.05;
+    if(state.mode === "playing"){
+      update(dt);
+    }
+    render();
+    requestAnimationFrame(tick);
+  }
+
+  updateHud();
+  renderLogTable();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
